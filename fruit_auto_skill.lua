@@ -74,6 +74,7 @@ end
 
 -- Danh sách kỹ năng và thời gian chờ sau khi thi triển
 local skillList = {
+    [1] = {key = Enum.KeyCode.One, waitTime = 1.5},
     [2] = {key = Enum.KeyCode.Two, waitTime = 1.5},
     [3] = {key = Enum.KeyCode.Three, waitTime = 3.5},
     [4] = {key = Enum.KeyCode.Four, waitTime = 4},
