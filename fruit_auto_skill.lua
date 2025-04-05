@@ -1,17 +1,29 @@
--- 📦 Dịch vụ cần thiết
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
 
--- 🎨 GUI Setup (nâng cấp)
+-- GUI Setup
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
 ScreenGui.Name = "AutoSkillGUI"
 
--- Đổ bóng dưới nút
+local ToggleButton = Instance.new("TextButton", ScreenGui)
+ToggleButton.Size = UDim2.new(0, 180, 0, 50)
+ToggleButton.Position = UDim2.new(0.05, 0, 0.1, 0)
+ToggleButton.Text = "Auto Skill: OFF"
+ToggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+ToggleButton.TextColor3 = Color3.new(1, 1, 1)
+ToggleButton.TextScaled = true
+ToggleButton.Font = Enum.Font.GothamBold
+-- Bo góc
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 10)
+corner.Parent = ToggleButton
+
+-- Hiệu ứng đổ bóng
 local shadow = Instance.new("Frame")
-shadow.Size = UDim2.new(0, 186, 0, 56)
-shadow.Position = UDim2.new(0.05, -3, 0.1, 3)
+shadow.Size = ToggleButton.Size + UDim2.new(0, 6, 0, 6)
+shadow.Position = ToggleButton.Position + UDim2.new(0, -3, 0, 3)
 shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 shadow.BackgroundTransparency = 0.5
 shadow.BorderSizePixel = 0
@@ -22,32 +34,20 @@ local shadowCorner = Instance.new("UICorner")
 shadowCorner.CornerRadius = UDim.new(0, 10)
 shadowCorner.Parent = shadow
 
--- Nút toggle
-local ToggleButton = Instance.new("TextButton", ScreenGui)
-ToggleButton.Size = UDim2.new(0, 180, 0, 50)
-ToggleButton.Position = UDim2.new(0.05, 0, 0.1, 0)
-ToggleButton.Text = "Auto Skill: OFF"
-ToggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-ToggleButton.TextColor3 = Color3.new(1, 1, 1)
-ToggleButton.TextScaled = true
-ToggleButton.Font = Enum.Font.GothamBold
 ToggleButton.ZIndex = 2
 
--- Bo góc
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 10)
-corner.Parent = ToggleButton
-
--- Hiệu ứng hover
+-- Hover effect
 ToggleButton.MouseEnter:Connect(function()
     ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 160)
 end)
+
 ToggleButton.MouseLeave:Connect(function()
     ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 end)
 
--- 🟢 Bật/tắt auto
+-- Kết nối toggle
 local autoSkill = false
+
 ToggleButton.MouseButton1Click:Connect(function()
     autoSkill = not autoSkill
     if autoSkill then
@@ -59,19 +59,20 @@ ToggleButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- ⏱️ Kiểm tra cooldown
+-- Kiểm tra cooldown
 local function isSkillReady(skillNumber)
-    local CooldownGui = PlayerGui:FindFirstChild("MainGui")
+    if not PlayerGui then return false end
+    local CooldownGui = PlayerGui:FindFirstChild("MainGui") -- Thay tên nếu khác
     if CooldownGui and CooldownGui:FindFirstChild("Cooldowns") then
-        local frame = CooldownGui.Cooldowns:FindFirstChild(tostring(skillNumber))
-        if frame and frame.Visible then
+        local CooldownFrame = CooldownGui:FindFirstChild("Cooldowns"):FindFirstChild(tostring(skillNumber))
+        if CooldownFrame and CooldownFrame.Visible then
             return false
         end
     end
     return true
 end
 
--- 📋 Danh sách kỹ năng + thời gian thi triển
+-- Danh sách kỹ năng và thời gian chờ sau khi thi triển
 local skillList = {
     [2] = {key = Enum.KeyCode.Two, waitTime = 1.5},
     [3] = {key = Enum.KeyCode.Three, waitTime = 3.5},
@@ -79,34 +80,26 @@ local skillList = {
     [5] = {key = Enum.KeyCode.Five, waitTime = 5}
 }
 
--- 🧠 Hàm dùng skill
-local function useSkill(skillData)
-    -- Chọn skill
-    VirtualInputManager:SendKeyEvent(true, skillData.key, false, game)
-    task.wait(0.1)
-    VirtualInputManager:SendKeyEvent(false, skillData.key, false, game)
-    task.wait(0.2)
+-- Auto Skill Loop
+while true do
+    if autoSkill then
+        for skillNum, skillData in pairs(skillList) do
+            if isSkillReady(skillNum) then
+                -- Chọn skill
+                VirtualInputManager:SendKeyEvent(true, skillData.key, false, game)
+                task.wait(0.1)
+                VirtualInputManager:SendKeyEvent(false, skillData.key, false, game)
+                task.wait(0.2)
 
-    -- Click chuột
-    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-    task.wait(0.1)
-    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+                -- Click chuột để kích hoạt
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                task.wait(0.1)
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
 
-    -- Đợi skill xong animation
-    task.wait(skillData.waitTime)
-end
-
--- 🔁 Auto Loop
-task.spawn(function()
-    while true do
-        if autoSkill then
-            for skillNum, skillData in pairs(skillList) do
-                if isSkillReady(skillNum) then
-                    useSkill(skillData)
-                end
+                -- ⏳ Chờ thời gian thi triển animation
+                task.wait(skillData.waitTime)
             end
         end
-        task.wait(0.1)
     end
-end)
-
+    task.wait(0.1)
+end
