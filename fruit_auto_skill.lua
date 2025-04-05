@@ -1,93 +1,56 @@
--- 📦 Services
-local VirtualInputManager = game:GetService("VirtualInputManager")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+-- GUI Setup
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+ScreenGui.Name = "AutoSkillGUI"
 
--- ⚙️ Cài đặt kỹ năng (có thời gian thi triển riêng)
-local skillSettings = {
-    [2] = {key = Enum.KeyCode.Two, waitTime = 1.5},
-    [3] = {key = Enum.KeyCode.Three, waitTime = 3.5},
-    [4] = {key = Enum.KeyCode.Four, waitTime = 4.5},
-    [5] = {key = Enum.KeyCode.Five, waitTime = 7} -- ✅ Skill 5 delay lâu hơn để tránh bug
-}
+local ToggleButton = Instance.new("TextButton", ScreenGui)
+ToggleButton.Size = UDim2.new(0, 180, 0, 50)
+ToggleButton.Position = UDim2.new(0.05, 0, 0.1, 0)
+ToggleButton.Text = "Auto Skill: OFF"
+ToggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+ToggleButton.TextColor3 = Color3.new(1, 1, 1)
+ToggleButton.TextScaled = true
+ToggleButton.Font = Enum.Font.GothamBold
 
--- 🎨 GUI nâng cấp
-local gui = Instance.new("ScreenGui", game.CoreGui)
-gui.Name = "AutoSkillGUI"
+-- Bo góc
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 10)
+corner.Parent = ToggleButton
 
-local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0, 220, 0, 100)
-frame.Position = UDim2.new(0.02, 0, 0.1, 0)
-frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-frame.BorderSizePixel = 0
-frame.Active = true
-frame.Draggable = true
+-- Hiệu ứng đổ bóng
+local shadow = Instance.new("Frame")
+shadow.Size = ToggleButton.Size + UDim2.new(0, 6, 0, 6)
+shadow.Position = ToggleButton.Position + UDim2.new(0, -3, 0, 3)
+shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+shadow.BackgroundTransparency = 0.5
+shadow.BorderSizePixel = 0
+shadow.ZIndex = 0
+shadow.Parent = ScreenGui
 
-local uicorner = Instance.new("UICorner", frame)
-uicorner.CornerRadius = UDim.new(0, 12)
+local shadowCorner = Instance.new("UICorner")
+shadowCorner.CornerRadius = UDim.new(0, 10)
+shadowCorner.Parent = shadow
 
-local title = Instance.new("TextLabel", frame)
-title.Size = UDim2.new(1, 0, 0, 30)
-title.Text = "⚔️ Auto Skill Control"
-title.TextColor3 = Color3.new(1,1,1)
-title.BackgroundTransparency = 1
-title.Font = Enum.Font.SourceSansBold
-title.TextScaled = true
+ToggleButton.ZIndex = 2
 
-local toggleButton = Instance.new("TextButton", frame)
-toggleButton.Size = UDim2.new(0.8, 0, 0, 35)
-toggleButton.Position = UDim2.new(0.1, 0, 0.5, 0)
-toggleButton.Text = "Auto Skill: OFF"
-toggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-toggleButton.TextColor3 = Color3.new(1,1,1)
-toggleButton.Font = Enum.Font.GothamBold
-toggleButton.TextScaled = true
-
-local uiCornerBtn = Instance.new("UICorner", toggleButton)
-uiCornerBtn.CornerRadius = UDim.new(0, 8)
-
--- 🔁 Toggle logic
-local autoEnabled = false
-
-toggleButton.MouseButton1Click:Connect(function()
-    autoEnabled = not autoEnabled
-    toggleButton.Text = autoEnabled and "Auto Skill: ON" or "Auto Skill: OFF"
-    toggleButton.BackgroundColor3 = autoEnabled and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(200, 50, 50)
+-- Hover effect
+ToggleButton.MouseEnter:Connect(function()
+    ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 160)
 end)
 
--- 🕓 Kiểm tra cooldown
-local function isSkillReady(skillNumber)
-    local gui = PlayerGui:FindFirstChild("MainGui")
-    if gui and gui:FindFirstChild("Cooldowns") then
-        local cd = gui.Cooldowns:FindFirstChild(tostring(skillNumber))
-        return not (cd and cd.Visible)
-    end
-    return true
-end
+ToggleButton.MouseLeave:Connect(function()
+    ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+end)
 
--- 🔄 Auto Skill Loop
-task.spawn(function()
-    while true do
-        if autoEnabled then
-            for skillNum, skillData in pairs(skillSettings) do
-                if isSkillReady(skillNum) then
-                    -- Nhấn phím chọn skill
-                    VirtualInputManager:SendKeyEvent(true, skillData.key, false, game)
-                    task.wait(0.1)
-                    VirtualInputManager:SendKeyEvent(false, skillData.key, false, game)
-                    task.wait(0.3)
+-- Kết nối toggle
+local autoSkill = false
 
-                    -- Click chuột để thi triển skill
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-                    task.wait(0.1)
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-
-                    -- ⏳ Đợi skill thực hiện xong
-                    task.wait(skillData.waitTime)
-                end
-            end
-        end
-        task.wait(0.2)
+ToggleButton.MouseButton1Click:Connect(function()
+    autoSkill = not autoSkill
+    if autoSkill then
+        ToggleButton.Text = "Auto Skill: ON"
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+    else
+        ToggleButton.Text = "Auto Skill: OFF"
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
     end
 end)
