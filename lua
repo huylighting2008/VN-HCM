@@ -1,4 +1,4 @@
--- Modern GUI + Auto Aim + Trigger Bot for Shooter Games + ESP + Label VN_HCM + Drag GUI + FOV Key Toggle
+-- Modern GUI + Auto Aim + Trigger Bot for Shooter Games + ESP + Label VN_HCM + Drag GUI + FOV Key Toggle + LOS + Right-Click Toggle
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -8,11 +8,13 @@ local Camera = workspace.CurrentCamera
 
 -- Config
 local AimbotEnabled = false
+local RightClickToggle = false
+local RightMouseDown = false
 local TriggerBotEnabled = false
 local FOVVisible = true
 local aimPart = "Head"
-local aimRadius = 120
-local aimSmoothness = 0.25
+local aimRadius = 90
+local aimSmoothness = 0.3
 local teamCheck = true
 
 -- UI Library (Simple, Modern Style)
@@ -20,7 +22,7 @@ local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
 ScreenGui.Name = "ModernAimMenu"
 
 local Frame = Instance.new("Frame", ScreenGui)
-Frame.Size = UDim2.new(0, 220, 0, 160)
+Frame.Size = UDim2.new(0, 220, 0, 190)
 Frame.Position = UDim2.new(0.05, 0, 0.2, 0)
 Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 Frame.BorderSizePixel = 0
@@ -67,6 +69,7 @@ end
 
 createToggle("Auto Aim", function(state) AimbotEnabled = state end)
 createToggle("Trigger Bot", function(state) TriggerBotEnabled = state end)
+createToggle("RMB Aim Only", function(state) RightClickToggle = state end)
 
 -- FOV Circle
 local fovCircle = Drawing.new("Circle")
@@ -84,6 +87,17 @@ espText.Outline = true
 espText.Center = true
 espText.Visible = false
 
+-- Check Line of Sight
+local function hasLineOfSight(targetPart)
+    local origin = Camera.CFrame.Position
+    local direction = (targetPart.Position - origin).Unit * 1000
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    local rayResult = workspace:Raycast(origin, direction, raycastParams)
+    return rayResult and rayResult.Instance:IsDescendantOf(targetPart.Parent)
+end
+
 -- Get Closest Enemy
 local function getClosestEnemy()
     local closest = nil
@@ -95,7 +109,7 @@ local function getClosestEnemy()
             local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
             if onScreen then
                 local dist = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(Mouse.X, Mouse.Y)).Magnitude
-                if dist < minDist then
+                if dist < minDist and hasLineOfSight(part) then
                     minDist = dist
                     closest = player
                 end
@@ -123,6 +137,14 @@ UserInputService.InputBegan:Connect(function(input, processed)
     if input.KeyCode == Enum.KeyCode.F then
         FOVVisible = not FOVVisible
         fovCircle.Visible = FOVVisible
+    elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+        RightMouseDown = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        RightMouseDown = false
     end
 end)
 
@@ -141,7 +163,7 @@ RunService.RenderStepped:Connect(function()
             espText.Visible = false
         end
 
-        if AimbotEnabled then
+        if AimbotEnabled and (not RightClickToggle or (RightClickToggle and RightMouseDown)) then
             local moveX = (headPos.X - Mouse.X) * aimSmoothness
             local moveY = (headPos.Y - Mouse.Y) * aimSmoothness
             mousemoverel(moveX, moveY)
