@@ -108,7 +108,8 @@ local function getClosestEnemy()
             local part = player.Character[aimPart]
             local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
             if onScreen then
-                local dist = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(Mouse.X, Mouse.Y)).Magnitude
+                local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                local dist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
                 if dist < minDist and hasLineOfSight(part) then
                     minDist = dist
                     closest = player
@@ -150,7 +151,8 @@ end)
 
 -- Main Loop
 RunService.RenderStepped:Connect(function()
-    fovCircle.Position = Vector2.new(Mouse.X, Mouse.Y)
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    fovCircle.Position = screenCenter
 
     local enemy = getClosestEnemy()
     if enemy and enemy.Character and enemy.Character:FindFirstChild(aimPart) then
@@ -164,8 +166,8 @@ RunService.RenderStepped:Connect(function()
         end
 
         if AimbotEnabled and (not RightClickToggle or (RightClickToggle and RightMouseDown)) then
-            local moveX = (headPos.X - Mouse.X) * aimSmoothness
-            local moveY = (headPos.Y - Mouse.Y) * aimSmoothness
+            local moveX = (headPos.X - screenCenter.X) * aimSmoothness
+            local moveY = (headPos.Y - screenCenter.Y) * aimSmoothness
             mousemoverel(moveX, moveY)
         end
     else
