@@ -151,11 +151,11 @@ end)
 
 -- Main Loop
 RunService.RenderStepped:Connect(function()
-    -- Lấy vị trí chuột
-    local mousePos = Vector2.new(Mouse.X, Mouse.Y)
+    -- Lấy vị trí trung tâm của màn hình (tâm ngắm)
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     
-    -- Đặt vòng tròn FOV tại chính giữa vị trí chuột
-    fovCircle.Position = mousePos  -- Vòng tròn FOV nằm chính giữa chuột
+    -- Đặt vòng tròn FOV tại chính giữa vị trí trung tâm màn hình
+    fovCircle.Position = screenCenter  -- Vòng tròn FOV nằm chính giữa trung tâm màn hình
 
     local enemy = getClosestEnemy()
     if enemy and enemy.Character and enemy.Character:FindFirstChild(aimPart) then
@@ -169,8 +169,8 @@ RunService.RenderStepped:Connect(function()
         end
 
         if AimbotEnabled and (not RightClickToggle or (RightClickToggle and RightMouseDown)) then
-            local moveX = (headPos.X - mousePos.X) * aimSmoothness  -- Dịch chuyển theo vị trí chuột
-            local moveY = (headPos.Y - mousePos.Y) * aimSmoothness
+            local moveX = (headPos.X - screenCenter.X) * aimSmoothness  -- Dịch chuyển theo vị trí tâm màn hình
+            local moveY = (headPos.Y - screenCenter.Y) * aimSmoothness
             mousemoverel(moveX, moveY)
         end
     else
@@ -183,3 +183,4 @@ RunService.RenderStepped:Connect(function()
         mouse1release()
     end
 end)
+
