@@ -151,8 +151,11 @@ end)
 
 -- Main Loop
 RunService.RenderStepped:Connect(function()
-    local mousePos = Vector2.new(Mouse.X, Mouse.Y)  -- Vị trí chuột thay vì trung tâm màn hình
-    fovCircle.Position = mousePos  -- Đặt vòng FOV tại vị trí chuột
+    -- Lấy vị trí chuột
+    local mousePos = Vector2.new(Mouse.X, Mouse.Y)
+    
+    -- Đặt vòng tròn FOV tại chính giữa vị trí chuột
+    fovCircle.Position = mousePos  -- Vòng tròn FOV nằm chính giữa chuột
 
     local enemy = getClosestEnemy()
     if enemy and enemy.Character and enemy.Character:FindFirstChild(aimPart) then
