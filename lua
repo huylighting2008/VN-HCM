@@ -45,9 +45,10 @@ end
 local skillList = {
     [1] = {key = Enum.KeyCode.One, waitTime = 1},
     [2] = {key = Enum.KeyCode.Two, waitTime = 1.5},
-    [3] = {key = Enum.KeyCode.Three, waitTime = 3.5},
-    [4] = {key = Enum.KeyCode.Four, waitTime = 4},
-    [5] = {key = Enum.KeyCode.Five, waitTime = 5}
+    [3] = {key = Enum.KeyCode.Three, waitTime = 2},
+    [4] = {key = Enum.KeyCode.Four, waitTime = 3.5},
+    [5] = {key = Enum.KeyCode.Five, waitTime = 4.5}
+    [6] = {key = Enum.KeyCode.Six, waitTime = 5},
 }
 
 -- Auto Skill Loop
