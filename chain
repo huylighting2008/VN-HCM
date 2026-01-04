@@ -1,0 +1,69 @@
+-- AUTO PARRY QTE (HIGH SENSITIVITY)
+-- Optimized for fast reaction
+
+local Players = game:GetService("Players")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- ===== CONFIG =====
+local ENABLED = true
+local COOLDOWN = 0.05      -- rất thấp → phản ứng nhanh
+local CENTER_RADIUS = 180 -- ưu tiên gần giữa màn hình
+-- ==================
+
+local lastTrigger = 0
+
+-- kiểm tra ký tự hợp lệ (QTE)
+local function isValidKey(text)
+    return typeof(text) == "string"
+        and #text == 1
+        and text:match("%a")
+end
+
+-- gửi phím nhanh
+local function pressKey(key)
+    key = key:upper()
+    VirtualInputManager:SendKeyEvent(true, key, false, game)
+    task.wait() -- wait 1 frame
+    VirtualInputManager:SendKeyEvent(false, key, false, game)
+end
+
+-- lấy tâm màn hình
+local function getCenter()
+    local v = Camera.ViewportSize
+    return Vector2.new(v.X / 2, v.Y / 2)
+end
+
+RunService.RenderStepped:Connect(function()
+    if not ENABLED then return end
+    if tick() - lastTrigger < COOLDOWN then return end
+
+    local center = getCenter()
+    local bestLabel
+    local bestDist = math.huge
+
+    for _, v in ipairs(playerGui:GetDescendants()) do
+        if v:IsA("TextLabel")
+            and v.Visible
+            and isValidKey(v.Text)
+            and v.AbsoluteSize.X >= 28
+        then
+            local pos = v.AbsolutePosition + (v.AbsoluteSize / 2)
+            local dist = (pos - center).Magnitude
+
+            if dist < CENTER_RADIUS and dist < bestDist then
+                bestDist = dist
+                bestLabel = v
+            end
+        end
+    end
+
+    if bestLabel then
+        pressKey(bestLabel.Text)
+        lastTrigger = tick()
+    end
+end)
