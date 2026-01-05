@@ -1,3 +1,4 @@
+-- ===== SERVICES =====
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
@@ -32,7 +33,7 @@ label.TextSize = 14
 label.TextColor3 = Color3.fromRGB(0, 255, 120)
 label.Text = "🟢 AUTO QTE: ON"
 
--- ALT PHẢI toggle
+-- ALT PHẢI bật / tắt
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     if input.KeyCode == Enum.KeyCode.RightAlt then
@@ -52,27 +53,53 @@ local function pressKey(keyName)
     local keyCode = Enum.KeyCode[keyName]
     if keyCode then
         VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
-        task.wait(0.05)
+        task.wait(0.04)
         VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
     end
 end
 
--- ===== HEARTBEAT =====
+-- ===== OPTIMIZED QTE LOGIC =====
+local lastScan = 0
+local SCAN_INTERVAL = 0.08      -- quét UI ~12 lần/giây
+local PRESS_INTERVAL = 0.12     -- bấm ~8 lần/giây
+local activeQTE = {}            -- [TextLabel] = lastPressTime
+local hooked = {}               -- tránh hook nhiều lần
+
 RunService.Heartbeat:Connect(function()
-    if not ENABLED then return end  -- 🔴 DÒNG QUAN TRỌNG
+    if not ENABLED then return end
+
+    local now = tick()
+    if now - lastScan < SCAN_INTERVAL then return end
+    lastScan = now
 
     for _, gui in ipairs(pGui:GetChildren()) do
         if gui:IsA("ScreenGui") and gui.Enabled then
+            local screenSize = gui.AbsoluteSize
+
             for _, element in ipairs(gui:GetDescendants()) do
                 if element:IsA("TextLabel") and element.Visible then
-                    local text = element.Text:upper()
-                    if #text == 1 and text:match("%a") then
+                    local key = element.Text:upper()
+                    if #key == 1 and key:match("%a") then
                         local pos = element.AbsolutePosition
-                        local screenSize = gui.AbsoluteSize
 
-                        if pos.Y > screenSize.Y * 0.3 and pos.Y < screenSize.Y * 0.7 then
-                            pressKey(text)
-                            task.wait(0.12)
+                        -- chỉ xử lý QTE gần giữa màn hình
+                        if pos.Y > screenSize.Y * 0.35 and pos.Y < screenSize.Y * 0.65 then
+                            local last = activeQTE[element] or 0
+                            if now - last >= PRESS_INTERVAL then
+                                activeQTE[element] = now
+                                pressKey(key)
+                            end
+
+                            -- QTE biến mất → dừng
+                            if not hooked[element] then
+                                hooked[element] = true
+                                element.AncestryChanged:Once(function(_, parent)
+                                    if not parent then
+                                        activeQTE[element] = nil
+                                        hooked[element] = nil
+                                    end
+                                end)
+                            end
                         end
                     end
                 end
