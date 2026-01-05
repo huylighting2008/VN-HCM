@@ -1,8 +1,10 @@
--- AUTO PARRY QTE - STABLE + AUTO IDLE (FIXED)
+-- AUTO PARRY QTE - ULTRA SENSITIVE + GUI
+-- Draggable status GUI
 
 local Players = game:GetService("Players")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
 
 local player = Players.LocalPlayer
@@ -10,45 +12,38 @@ local playerGui = player:WaitForChild("PlayerGui")
 
 -- ===== CONFIG =====
 local ENABLED = true
-local CENTER_RADIUS = 260
+local COOLDOWN = 0.02        -- cực nhạy
+local CENTER_RADIUS = 260    -- quét rộng
 -- ==================
 
--- lưu QTE đã xử lý
-local handledQTE = {}
+local lastTrigger = 0
+local lastText = ""
 
 -- ================= GUI =================
-local gui = Instance.new("ScreenGui")
+local gui = Instance.new("ScreenGui", playerGui)
 gui.Name = "AutoParryStatus"
 gui.ResetOnSpawn = false
-gui.Parent = playerGui
 
 local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0, 170, 0, 40)
-frame.Position = UDim2.new(0.5, -85, 0.8, 0)
+frame.Size = UDim2.new(0, 150, 0, 40)
+frame.Position = UDim2.new(0.5, -75, 0.8, 0)
 frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 frame.BorderSizePixel = 0
 frame.Active = true
 frame.Draggable = true
-Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+
+local corner = Instance.new("UICorner", frame)
+corner.CornerRadius = UDim.new(0, 8)
 
 local label = Instance.new("TextLabel", frame)
 label.Size = UDim2.new(1, 0, 1, 0)
 label.BackgroundTransparency = 1
+label.Text = "🟢 Auto Parry: ON"
+label.TextColor3 = Color3.fromRGB(0, 255, 100)
 label.Font = Enum.Font.GothamBold
 label.TextSize = 14
-label.Text = "⚪ Auto Parry: IDLE"
-label.TextColor3 = Color3.fromRGB(180, 180, 180)
--- ======================================
 
-local function setStatus(active)
-    if active then
-        label.Text = "🟢 Auto Parry: ACTIVE"
-        label.TextColor3 = Color3.fromRGB(0, 255, 120)
-    else
-        label.Text = "⚪ Auto Parry: IDLE"
-        label.TextColor3 = Color3.fromRGB(180, 180, 180)
-    end
-end
+-- ======================================
 
 local function isValidKey(text)
     return typeof(text) == "string"
@@ -59,7 +54,7 @@ end
 local function pressKey(key)
     key = key:upper()
     VirtualInputManager:SendKeyEvent(true, key, false, game)
-    task.wait()
+    task.wait() -- 1 frame
     VirtualInputManager:SendKeyEvent(false, key, false, game)
 end
 
@@ -70,34 +65,31 @@ end
 
 RunService.RenderStepped:Connect(function()
     if not ENABLED then return end
+    if tick() - lastTrigger < COOLDOWN then return end
 
     local center = getCenter()
-    local anyQTE = false
+    local best, bestDist
 
     for _, v in ipairs(playerGui:GetDescendants()) do
         if v:IsA("TextLabel")
             and v.Visible
             and isValidKey(v.Text)
+            and v.Text ~= lastText
             and v.AbsoluteSize.X >= 26
         then
             local pos = v.AbsolutePosition + (v.AbsoluteSize / 2)
             local dist = (pos - center).Magnitude
 
-            if dist <= CENTER_RADIUS then
-                anyQTE = true
-                setStatus(true)
-
-                if not handledQTE[v] then
-                    handledQTE[v] = true
-                    pressKey(v.Text)
-                end
+            if dist <= CENTER_RADIUS and (not bestDist or dist < bestDist) then
+                best = v
+                bestDist = dist
             end
         end
     end
 
-    -- ❄ Không còn QTE → reset & idle
-    if not anyQTE then
-        handledQTE = {}
-        setStatus(false)
+    if best then
+        pressKey(best.Text)
+        lastText = best.Text
+        lastTrigger = tick()
     end
 end)
