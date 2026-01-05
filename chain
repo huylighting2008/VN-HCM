@@ -1,4 +1,4 @@
--- AUTO PARRY QTE - SMART ACTIVE / IDLE
+-- AUTO PARRY QTE - STABLE + AUTO IDLE (FIXED)
 
 local Players = game:GetService("Players")
 local VirtualInputManager = game:GetService("VirtualInputManager")
@@ -13,17 +13,18 @@ local ENABLED = true
 local CENTER_RADIUS = 260
 -- ==================
 
--- Lưu QTE đã xử lý
+-- lưu QTE đã xử lý
 local handledQTE = {}
 
 -- ================= GUI =================
-local gui = Instance.new("ScreenGui", playerGui)
+local gui = Instance.new("ScreenGui")
 gui.Name = "AutoParryStatus"
 gui.ResetOnSpawn = false
+gui.Parent = playerGui
 
 local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0, 160, 0, 40)
-frame.Position = UDim2.new(0.5, -80, 0.8, 0)
+frame.Size = UDim2.new(0, 170, 0, 40)
+frame.Position = UDim2.new(0.5, -85, 0.8, 0)
 frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 frame.BorderSizePixel = 0
 frame.Active = true
@@ -35,6 +36,8 @@ label.Size = UDim2.new(1, 0, 1, 0)
 label.BackgroundTransparency = 1
 label.Font = Enum.Font.GothamBold
 label.TextSize = 14
+label.Text = "⚪ Auto Parry: IDLE"
+label.TextColor3 = Color3.fromRGB(180, 180, 180)
 -- ======================================
 
 local function setStatus(active)
@@ -46,8 +49,6 @@ local function setStatus(active)
         label.TextColor3 = Color3.fromRGB(180, 180, 180)
     end
 end
-
-setStatus(false)
 
 local function isValidKey(text)
     return typeof(text) == "string"
@@ -71,39 +72,32 @@ RunService.RenderStepped:Connect(function()
     if not ENABLED then return end
 
     local center = getCenter()
-    local foundQTE = false
+    local anyQTE = false
 
     for _, v in ipairs(playerGui:GetDescendants()) do
         if v:IsA("TextLabel")
             and v.Visible
             and isValidKey(v.Text)
-            and not handledQTE[v]
             and v.AbsoluteSize.X >= 26
         then
             local pos = v.AbsolutePosition + (v.AbsoluteSize / 2)
             local dist = (pos - center).Magnitude
 
             if dist <= CENTER_RADIUS then
-                foundQTE = true
-                handledQTE[v] = true
+                anyQTE = true
                 setStatus(true)
-                pressKey(v.Text)
 
-                -- ♻ Reset khi QTE biến mất
-                v:GetPropertyChangedSignal("Visible"):Once(function()
-                    handledQTE[v] = nil
-                end)
-
-                v.AncestryChanged:Once(function()
-                    handledQTE[v] = nil
-                end)
-
-                break
+                if not handledQTE[v] then
+                    handledQTE[v] = true
+                    pressKey(v.Text)
+                end
             end
         end
     end
 
-    if not foundQTE then
+    -- ❄ Không còn QTE → reset & idle
+    if not anyQTE then
+        handledQTE = {}
         setStatus(false)
     end
 end)
