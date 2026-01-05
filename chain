@@ -1,95 +1,84 @@
--- AUTO PARRY QTE - ULTRA SENSITIVE + GUI
--- Draggable status GUI
-
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local VirtualInputManager = game:GetService("VirtualInputManager")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local Camera = workspace.CurrentCamera
 
 local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+local pGui = player:WaitForChild("PlayerGui")
 
--- ===== CONFIG =====
+-- ===== TOGGLE =====
 local ENABLED = true
-local COOLDOWN = 0.02        -- cực nhạy
-local CENTER_RADIUS = 260    -- quét rộng
--- ==================
 
-local lastTrigger = 0
-local lastText = ""
-
--- ================= GUI =================
-local gui = Instance.new("ScreenGui", playerGui)
-gui.Name = "AutoParryStatus"
+-- ===== GUI =====
+local gui = Instance.new("ScreenGui", pGui)
+gui.Name = "AutoQTE_GUI"
 gui.ResetOnSpawn = false
 
 local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0, 150, 0, 40)
-frame.Position = UDim2.new(0.5, -75, 0.8, 0)
+frame.Size = UDim2.new(0, 180, 0, 40)
+frame.Position = UDim2.new(0.5, -90, 0.85, 0)
 frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 frame.BorderSizePixel = 0
 frame.Active = true
 frame.Draggable = true
 
-local corner = Instance.new("UICorner", frame)
-corner.CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
 
 local label = Instance.new("TextLabel", frame)
 label.Size = UDim2.new(1, 0, 1, 0)
 label.BackgroundTransparency = 1
-label.Text = "🟢 Auto Parry: ON"
-label.TextColor3 = Color3.fromRGB(0, 255, 100)
 label.Font = Enum.Font.GothamBold
 label.TextSize = 14
+label.TextColor3 = Color3.fromRGB(0, 255, 120)
+label.Text = "🟢 AUTO QTE: ON"
 
--- ======================================
+-- ALT PHẢI toggle
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.RightAlt then
+        ENABLED = not ENABLED
+        if ENABLED then
+            label.Text = "🟢 AUTO QTE: ON"
+            label.TextColor3 = Color3.fromRGB(0, 255, 120)
+        else
+            label.Text = "🔴 AUTO QTE: OFF"
+            label.TextColor3 = Color3.fromRGB(255, 80, 80)
+        end
+    end
+end)
 
-local function isValidKey(text)
-    return typeof(text) == "string"
-        and #text == 1
-        and text:match("%a")
+-- ===== HÀM NHẤN PHÍM =====
+local function pressKey(keyName)
+    local keyCode = Enum.KeyCode[keyName]
+    if keyCode then
+        VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
+        task.wait(0.05)
+        VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
+    end
 end
 
-local function pressKey(key)
-    key = key:upper()
-    VirtualInputManager:SendKeyEvent(true, key, false, game)
-    task.wait() -- 1 frame
-    VirtualInputManager:SendKeyEvent(false, key, false, game)
-end
+-- ===== HEARTBEAT =====
+RunService.Heartbeat:Connect(function()
+    if not ENABLED then return end  -- 🔴 DÒNG QUAN TRỌNG
 
-local function getCenter()
-    local v = Camera.ViewportSize
-    return Vector2.new(v.X / 2, v.Y / 2)
-end
+    for _, gui in ipairs(pGui:GetChildren()) do
+        if gui:IsA("ScreenGui") and gui.Enabled then
+            for _, element in ipairs(gui:GetDescendants()) do
+                if element:IsA("TextLabel") and element.Visible then
+                    local text = element.Text:upper()
+                    if #text == 1 and text:match("%a") then
+                        local pos = element.AbsolutePosition
+                        local screenSize = gui.AbsoluteSize
 
-RunService.RenderStepped:Connect(function()
-    if not ENABLED then return end
-    if tick() - lastTrigger < COOLDOWN then return end
-
-    local center = getCenter()
-    local best, bestDist
-
-    for _, v in ipairs(playerGui:GetDescendants()) do
-        if v:IsA("TextLabel")
-            and v.Visible
-            and isValidKey(v.Text)
-            and v.Text ~= lastText
-            and v.AbsoluteSize.X >= 26
-        then
-            local pos = v.AbsolutePosition + (v.AbsoluteSize / 2)
-            local dist = (pos - center).Magnitude
-
-            if dist <= CENTER_RADIUS and (not bestDist or dist < bestDist) then
-                best = v
-                bestDist = dist
+                        if pos.Y > screenSize.Y * 0.3 and pos.Y < screenSize.Y * 0.7 then
+                            pressKey(text)
+                            task.wait(0.12)
+                        end
+                    end
+                end
             end
         end
     end
-
-    if best then
-        pressKey(best.Text)
-        lastText = best.Text
-        lastTrigger = tick()
-    end
 end)
+
+print("[AUTO QTE] Loaded | RightAlt to toggle")
