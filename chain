@@ -1,10 +1,8 @@
--- AUTO PARRY QTE - ULTRA SENSITIVE + GUI
--- Draggable status GUI
+-- AUTO PARRY QTE - STABLE / NO LAG VERSION
 
 local Players = game:GetService("Players")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
 
 local player = Players.LocalPlayer
@@ -12,38 +10,35 @@ local playerGui = player:WaitForChild("PlayerGui")
 
 -- ===== CONFIG =====
 local ENABLED = true
-local COOLDOWN = 0.02        -- cực nhạy
-local CENTER_RADIUS = 260    -- quét rộng
+local CENTER_RADIUS = 260
 -- ==================
 
-local lastTrigger = 0
-local lastText = ""
+-- Lưu QTE đã xử lý
+local handled = {}
 
--- ================= GUI =================
+-- ================= GUI STATUS =================
 local gui = Instance.new("ScreenGui", playerGui)
 gui.Name = "AutoParryStatus"
 gui.ResetOnSpawn = false
 
 local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0, 150, 0, 40)
+frame.Size = UDim2.new(0, 150, 0, 38)
 frame.Position = UDim2.new(0.5, -75, 0.8, 0)
 frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 frame.BorderSizePixel = 0
 frame.Active = true
 frame.Draggable = true
 
-local corner = Instance.new("UICorner", frame)
-corner.CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
 
 local label = Instance.new("TextLabel", frame)
 label.Size = UDim2.new(1, 0, 1, 0)
 label.BackgroundTransparency = 1
 label.Text = "🟢 Auto Parry: ON"
-label.TextColor3 = Color3.fromRGB(0, 255, 100)
+label.TextColor3 = Color3.fromRGB(0, 255, 120)
 label.Font = Enum.Font.GothamBold
 label.TextSize = 14
-
--- ======================================
+-- ==============================================
 
 local function isValidKey(text)
     return typeof(text) == "string"
@@ -54,7 +49,7 @@ end
 local function pressKey(key)
     key = key:upper()
     VirtualInputManager:SendKeyEvent(true, key, false, game)
-    task.wait() -- 1 frame
+    task.wait()
     VirtualInputManager:SendKeyEvent(false, key, false, game)
 end
 
@@ -65,31 +60,34 @@ end
 
 RunService.RenderStepped:Connect(function()
     if not ENABLED then return end
-    if tick() - lastTrigger < COOLDOWN then return end
 
     local center = getCenter()
-    local best, bestDist
 
     for _, v in ipairs(playerGui:GetDescendants()) do
         if v:IsA("TextLabel")
             and v.Visible
             and isValidKey(v.Text)
-            and v.Text ~= lastText
+            and not handled[v]          -- 🔥 CHỈ 1 LẦN
             and v.AbsoluteSize.X >= 26
         then
             local pos = v.AbsolutePosition + (v.AbsoluteSize / 2)
             local dist = (pos - center).Magnitude
 
-            if dist <= CENTER_RADIUS and (not bestDist or dist < bestDist) then
-                best = v
-                bestDist = dist
+            if dist <= CENTER_RADIUS then
+                handled[v] = true      -- đánh dấu đã xử lý
+                pressKey(v.Text)
+
+                -- ♻ reset khi QTE biến mất hoặc bị destroy
+                v:GetPropertyChangedSignal("Visible"):Once(function()
+                    handled[v] = nil
+                end)
+
+                v.AncestryChanged:Once(function()
+                    handled[v] = nil
+                end)
+
+                break
             end
         end
-    end
-
-    if best then
-        pressKey(best.Text)
-        lastText = best.Text
-        lastTrigger = tick()
     end
 end)
