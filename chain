@@ -1,4 +1,4 @@
--- AUTO PARRY QTE - STABLE / NO LAG VERSION
+-- AUTO PARRY QTE - SMART ACTIVE / IDLE
 
 local Players = game:GetService("Players")
 local VirtualInputManager = game:GetService("VirtualInputManager")
@@ -14,31 +14,40 @@ local CENTER_RADIUS = 260
 -- ==================
 
 -- Lưu QTE đã xử lý
-local handled = {}
+local handledQTE = {}
 
--- ================= GUI STATUS =================
+-- ================= GUI =================
 local gui = Instance.new("ScreenGui", playerGui)
 gui.Name = "AutoParryStatus"
 gui.ResetOnSpawn = false
 
 local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0, 150, 0, 38)
-frame.Position = UDim2.new(0.5, -75, 0.8, 0)
+frame.Size = UDim2.new(0, 160, 0, 40)
+frame.Position = UDim2.new(0.5, -80, 0.8, 0)
 frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 frame.BorderSizePixel = 0
 frame.Active = true
 frame.Draggable = true
-
 Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
 
 local label = Instance.new("TextLabel", frame)
 label.Size = UDim2.new(1, 0, 1, 0)
 label.BackgroundTransparency = 1
-label.Text = "🟢 Auto Parry: ON"
-label.TextColor3 = Color3.fromRGB(0, 255, 120)
 label.Font = Enum.Font.GothamBold
 label.TextSize = 14
--- ==============================================
+-- ======================================
+
+local function setStatus(active)
+    if active then
+        label.Text = "🟢 Auto Parry: ACTIVE"
+        label.TextColor3 = Color3.fromRGB(0, 255, 120)
+    else
+        label.Text = "⚪ Auto Parry: IDLE"
+        label.TextColor3 = Color3.fromRGB(180, 180, 180)
+    end
+end
+
+setStatus(false)
 
 local function isValidKey(text)
     return typeof(text) == "string"
@@ -62,32 +71,39 @@ RunService.RenderStepped:Connect(function()
     if not ENABLED then return end
 
     local center = getCenter()
+    local foundQTE = false
 
     for _, v in ipairs(playerGui:GetDescendants()) do
         if v:IsA("TextLabel")
             and v.Visible
             and isValidKey(v.Text)
-            and not handled[v]          -- 🔥 CHỈ 1 LẦN
+            and not handledQTE[v]
             and v.AbsoluteSize.X >= 26
         then
             local pos = v.AbsolutePosition + (v.AbsoluteSize / 2)
             local dist = (pos - center).Magnitude
 
             if dist <= CENTER_RADIUS then
-                handled[v] = true      -- đánh dấu đã xử lý
+                foundQTE = true
+                handledQTE[v] = true
+                setStatus(true)
                 pressKey(v.Text)
 
-                -- ♻ reset khi QTE biến mất hoặc bị destroy
+                -- ♻ Reset khi QTE biến mất
                 v:GetPropertyChangedSignal("Visible"):Once(function()
-                    handled[v] = nil
+                    handledQTE[v] = nil
                 end)
 
                 v.AncestryChanged:Once(function()
-                    handled[v] = nil
+                    handledQTE[v] = nil
                 end)
 
                 break
             end
         end
+    end
+
+    if not foundQTE then
+        setStatus(false)
     end
 end)
