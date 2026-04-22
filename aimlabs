@@ -1,0 +1,153 @@
+--[[ 
+    SIMPLE AIMBOT WITH GUI & SMOOTHNESS
+    Tính năng: 
+    - Bật/Tắt Aimbot
+    - Điều chỉnh độ mượt (Smoothness)
+    - Điều chỉnh bán kính vòng tròn (FOV Radius)
+    - Hiển thị vòng tròn FOV
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- // Cấu hình mặc định
+local Settings = {
+    AimbotEnabled = false,
+    FOVEnabled = true,
+    FOVRadius = 150,
+    Smoothness = 0.1, -- Càng nhỏ càng mượt (ví dụ 0.05), càng lớn càng nhanh (1 là snap)
+    TargetPart = "Head" -- Có thể đổi thành "HumanoidRootPart"
+}
+
+-- // Tạo vòng tròn FOV (Sử dụng Drawing Library)
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Thickness = 1
+FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+FOVCircle.Filled = false
+FOVCircle.Transparency = 1
+FOVCircle.Visible = Settings.FOVEnabled
+
+-- // Hàm tìm người chơi gần tâm màn hình nhất
+local function GetClosestPlayer()
+    local MaximumDistance = Settings.FOVRadius
+    local Target = nil
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild(Settings.TargetPart) and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+            local ScreenPoint = Camera:WorldToScreenPoint(player.Character[Settings.TargetPart].Position)
+            local VectorDistance = (Vector2.new(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y) - Vector2.new(ScreenPoint.X, ScreenPoint.Y)).Magnitude
+
+            if VectorDistance < MaximumDistance then
+                MaximumDistance = VectorDistance
+                Target = player
+            end
+        end
+    end
+    return Target
+end
+
+-- // Cập nhật Camera (Aimbot Logic)
+RunService.RenderStepped:Connect(function()
+    -- Cập nhật vòng tròn FOV
+    FOVCircle.Radius = Settings.FOVRadius
+    FOVCircle.Position = UserInputService:GetMouseLocation()
+    FOVCircle.Visible = Settings.FOVEnabled
+
+    if Settings.AimbotEnabled then
+        local Target = GetClosestPlayer()
+        if Target and Target.Character and Target.Character:FindFirstChild(Settings.TargetPart) then
+            local TargetPos = Target.Character[Settings.TargetPart].Position
+            
+            -- Tính toán CFrame mượt mà (Lerp)
+            local LookAt = CFrame.new(Camera.CFrame.Position, TargetPos)
+            Camera.CFrame = Camera.CFrame:Lerp(LookAt, Settings.Smoothness)
+        end
+    end
+end)
+
+-- // TẠO GUI ĐIỀU KHIỂN
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local Title = Instance.new("TextLabel")
+local ToggleAimbot = Instance.new("TextButton")
+local ToggleFOV = Instance.new("TextButton")
+local RadiusInput = Instance.new("TextBox")
+local SmoothInput = Instance.new("TextBox")
+
+ScreenGui.Parent = game.CoreGui
+ScreenGui.Name = "AimbotGui"
+
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+MainFrame.Position = UDim2.new(0.1, 0, 0.2, 0)
+MainFrame.Size = UDim2.new(0, 200, 0, 250)
+MainFrame.Active = true
+MainFrame.Draggable = true -- Cho phép kéo GUI
+
+Title.Parent = MainFrame
+Title.Text = "ROBLOX AIMBOT"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+
+-- Nút Bật/Tắt Aimbot
+ToggleAimbot.Parent = MainFrame
+ToggleAimbot.Position = UDim2.new(0, 10, 0, 40)
+ToggleAimbot.Size = UDim2.new(0, 180, 0, 30)
+ToggleAimbot.Text = "Aimbot: OFF"
+ToggleAimbot.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+ToggleAimbot.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+ToggleAimbot.MouseButton1Click:Connect(function()
+    Settings.AimbotEnabled = not Settings.AimbotEnabled
+    ToggleAimbot.Text = "Aimbot: " .. (Settings.AimbotEnabled and "ON" or "OFF")
+    ToggleAimbot.BackgroundColor3 = Settings.AimbotEnabled and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
+end)
+
+-- Nút Bật/Tắt FOV
+ToggleFOV.Parent = MainFrame
+ToggleFOV.Position = UDim2.new(0, 10, 0, 80)
+ToggleFOV.Size = UDim2.new(0, 180, 0, 30)
+ToggleFOV.Text = "Show FOV: ON"
+ToggleFOV.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+ToggleFOV.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+ToggleFOV.MouseButton1Click:Connect(function()
+    Settings.FOVEnabled = not Settings.FOVEnabled
+    ToggleFOV.Text = "Show FOV: " .. (Settings.FOVEnabled and "ON" or "OFF")
+    ToggleFOV.BackgroundColor3 = Settings.FOVEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(150, 0, 0)
+end)
+
+-- Nhập bán kính FOV
+RadiusInput.Parent = MainFrame
+RadiusInput.Position = UDim2.new(0, 10, 0, 120)
+RadiusInput.Size = UDim2.new(0, 180, 0, 30)
+RadiusInput.Text = "FOV Radius: 150"
+RadiusInput.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+RadiusInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+RadiusInput.FocusLost:Connect(function()
+    local val = tonumber(RadiusInput.Text:match("%d+"))
+    if val then
+        Settings.FOVRadius = val
+    end
+end)
+
+-- Nhập độ mượt Smoothness
+SmoothInput.Parent = MainFrame
+SmoothInput.Position = UDim2.new(0, 10, 0, 160)
+SmoothInput.Size = UDim2.new(0, 180, 0, 30)
+SmoothInput.Text = "Smooth: 0.1"
+SmoothInput.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+SmoothInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+SmoothInput.FocusLost:Connect(function()
+    local val = tonumber(SmoothInput.Text:match("%.?%d+"))
+    if val then
+        Settings.Smoothness = val
+    end
+end)
