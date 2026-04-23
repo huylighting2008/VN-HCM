@@ -1,8 +1,10 @@
 --[[ 
-    AIMBOT WITH TEAM CHECK & GUI
-    Tính năng mới: 
-    - Team Check: Tự động bỏ qua đồng đội.
-    - GUI điều khiển Team Check.
+    PRO AIMBOT: CLOSEST TARGET & VISIBILITY CHECK
+    Tính năng nâng cao:
+    - Wall Check: Không aim xuyên tường (Sử dụng Raycast).
+    - Distance Priority: Ưu tiên kẻ địch ở gần người chơi nhất (3D Distance).
+    - Team Check: Bỏ qua đồng đội.
+    - Smoothness & FOV: Điều chỉnh mượt mà.
 ]]
 
 local Players = game:GetService("Players")
@@ -15,7 +17,8 @@ local Camera = workspace.CurrentCamera
 local Settings = {
     AimbotEnabled = false,
     FOVEnabled = true,
-    TeamCheck = true, -- Mặc định bật: Chỉ aim kẻ thù
+    TeamCheck = true,
+    WallCheck = true, -- Bật/Tắt kiểm tra vật cản (tường)
     FOVRadius = 150,
     Smoothness = 0.1, 
     TargetPart = "Head" 
@@ -29,42 +32,77 @@ FOVCircle.Filled = false
 FOVCircle.Transparency = 1
 FOVCircle.Visible = Settings.FOVEnabled
 
--- // Hàm tìm người chơi gần tâm màn hình nhất (Có kiểm tra Team)
-local function GetClosestPlayer()
-    local MaximumDistance = Settings.FOVRadius
-    local Target = nil
+-- // Hàm kiểm tra vật cản (Raycast)
+local function IsVisible(targetPart)
+    if not Settings.WallCheck then return true end -- Nếu tắt WallCheck, coi như luôn nhìn thấy
+
+    local origin = Camera.CFrame.Position
+    local direction = (targetPart.Position - origin).Unit * (targetPart.Position - origin).Magnitude
+    
+    local rayParams = RaycastParams.new()
+    -- Loại bỏ chính nhân vật của mình khỏi danh sách kiểm tra để tia ray không tự chạm vào mình
+    rayParams.FilterDescendantsInstances = {LocalPlayer.Character} 
+    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+    local result = workspace:Raycast(origin, direction, rayParams)
+
+    -- Nếu không chạm gì hoặc chạm đúng vào nhân vật mục tiêu thì là "nhìn thấy"
+    if result == nil or result.Instance:IsDescendantOf(result.Instance.Parent.Parent) then 
+        -- Kiểm tra kỹ hơn: xem vật chạm phải có thuộc Character của mục tiêu không
+        for _, player in pairs(Players:GetPlayers()) do
+            if player.Character and result.Instance:IsDescendantOf(player.Character) then
+                return true
+            end
+        end
+        return result == nil
+    end
+    return false
+end
+
+-- // Hàm tìm người chơi ưu tiên (Gần nhất & Không bị che khuất)
+local function GetBestTarget()
+    local BestTarget = nil
+    local ShortestDistance = math.huge -- Bắt đầu với khoảng cách vô hạn
 
     for _, player in pairs(Players:GetPlayers()) do
-        -- 1. Kiểm tra không phải là chính mình
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild(Settings.TargetPart) and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
             
-            -- 2. KIỂM TRA TEAM: Nếu bật TeamCheck và cùng team thì bỏ qua
+            -- 1. Kiểm tra Team
             if Settings.TeamCheck and player.Team == LocalPlayer.Team then
-                continue -- Bỏ qua người này và chuyển sang người tiếp theo
+                continue
             end
 
-            -- 3. Tính toán khoảng cách đến tâm màn hình
-            local ScreenPoint = Camera:WorldToScreenPoint(player.Character[Settings.TargetPart].Position)
+            local targetPart = player.Character[Settings.TargetPart]
+            
+            -- 2. Kiểm tra FOV (Phải nằm trong vòng tròn mới aim)
+            local ScreenPoint = Camera:WorldToScreenPoint(targetPart.Position)
             local MousePos = UserInputService:GetMouseLocation()
             local VectorDistance = (Vector2.new(MousePos.X, MousePos.Y) - Vector2.new(ScreenPoint.X, ScreenPoint.Y)).Magnitude
 
-            if VectorDistance < MaximumDistance then
-                MaximumDistance = VectorDistance
-                Target = player
+            if VectorDistance < Settings.FOVRadius then
+                -- 3. Kiểm tra vật cản (Wall Check)
+                if IsVisible(targetPart) then
+                    -- 4. ƯU TIÊN: Tìm người có khoảng cách 3D gần nhất với LocalPlayer
+                    local WorldDistance = (LocalPlayer.Character.HumanoidRootPart.Position - targetPart.Position).Magnitude
+                    if WorldDistance < ShortestDistance then
+                        ShortestDistance = WorldDistance
+                        BestTarget = player
+                    end
+                end
             end
         end
     end
-    return Target
+    return BestTarget
 end
 
--- // Cập nhật Camera (Aimbot Logic)
+-- // Cập nhật Camera
 RunService.RenderStepped:Connect(function()
     FOVCircle.Radius = Settings.FOVRadius
     FOVCircle.Position = UserInputService:GetMouseLocation()
     FOVCircle.Visible = Settings.FOVEnabled
 
     if Settings.AimbotEnabled then
-        local Target = GetClosestPlayer()
+        local Target = GetBestTarget()
         if Target and Target.Character and Target.Character:FindFirstChild(Settings.TargetPart) then
             local TargetPos = Target.Character[Settings.TargetPart].Position
             local LookAt = CFrame.new(Camera.CFrame.Position, TargetPos)
@@ -79,34 +117,44 @@ local MainFrame = Instance.new("Frame")
 local Title = Instance.new("TextLabel")
 local ToggleAimbot = Instance.new("TextButton")
 local ToggleFOV = Instance.new("TextButton")
-local ToggleTeam = Instance.new("TextButton") -- Nút Team Check
+local ToggleTeam = Instance.new("TextButton")
+local ToggleWall = Instance.new("TextButton") -- Nút Wall Check
 local RadiusInput = Instance.new("TextBox")
 local SmoothInput = Instance.new("TextBox")
 
 ScreenGui.Parent = game.CoreGui
-ScreenGui.Name = "AimbotGui"
+ScreenGui.Name = "AimbotGuiPro"
 
 MainFrame.Name = "MainFrame"
 MainFrame.Parent = ScreenGui
-MainFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 MainFrame.Position = UDim2.new(0.1, 0, 0.2, 0)
-MainFrame.Size = UDim2.new(0, 200, 0, 300) -- Tăng chiều cao để chứa thêm nút
+MainFrame.Size = UDim2.new(0, 200, 0, 350)
 MainFrame.Active = true
 MainFrame.Draggable = true 
 
 Title.Parent = MainFrame
-Title.Text = "ROBLOX AIMBOT PRO"
+Title.Text = "ULTIMATE AIMBOT"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Size = UDim2.new(1, 0, 0, 30)
-Title.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Title.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 
--- Nút Bật/Tắt Aimbot
-ToggleAimbot.Parent = MainFrame
-ToggleAimbot.Position = UDim2.new(0, 10, 0, 40)
-ToggleAimbot.Size = UDim2.new(0, 180, 0, 30)
-ToggleAimbot.Text = "Aimbot: OFF"
-ToggleAimbot.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-ToggleAimbot.TextColor3 = Color3.fromRGB(255, 255, 255)
+local function CreateButton(name, text, pos, defaultColor)
+    local btn = Instance.new("TextButton")
+    btn.Name = name
+    btn.Parent = MainFrame
+    btn.Position = pos
+    btn.Size = UDim2.new(0, 180, 0, 30)
+    btn.Text = text
+    btn.BackgroundColor3 = defaultColor
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    return btn
+end
+
+ToggleAimbot = CreateButton("TglAimbot", "Aimbot: OFF", UDim2.new(0, 10, 0, 40), Color3.fromRGB(200, 0, 0))
+ToggleFOV = CreateButton("TglFOV", "Show FOV: ON", UDim2.new(0, 10, 0, 80), Color3.fromRGB(0, 150, 0))
+ToggleTeam = CreateButton("TglTeam", "Team Check: ON", UDim2.new(0, 10, 0, 120), Color3.fromRGB(0, 150, 0))
+ToggleWall = CreateButton("TglWall", "Wall Check: ON", UDim2.new(0, 10, 0, 160), Color3.fromRGB(0, 150, 0))
 
 ToggleAimbot.MouseButton1Click:Connect(function()
     Settings.AimbotEnabled = not Settings.AimbotEnabled
@@ -114,27 +162,11 @@ ToggleAimbot.MouseButton1Click:Connect(function()
     ToggleAimbot.BackgroundColor3 = Settings.AimbotEnabled and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
 end)
 
--- Nút Bật/Tắt FOV
-ToggleFOV.Parent = MainFrame
-ToggleFOV.Position = UDim2.new(0, 10, 0, 80)
-ToggleFOV.Size = UDim2.new(0, 180, 0, 30)
-ToggleFOV.Text = "Show FOV: ON"
-ToggleFOV.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
-ToggleFOV.TextColor3 = Color3.fromRGB(255, 255, 255)
-
 ToggleFOV.MouseButton1Click:Connect(function()
     Settings.FOVEnabled = not Settings.FOVEnabled
     ToggleFOV.Text = "Show FOV: " .. (Settings.FOVEnabled and "ON" or "OFF")
     ToggleFOV.BackgroundColor3 = Settings.FOVEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(150, 0, 0)
 end)
-
--- Nút Bật/Tắt Team Check (MỚI)
-ToggleTeam.Parent = MainFrame
-ToggleTeam.Position = UDim2.new(0, 10, 0, 120)
-ToggleTeam.Size = UDim2.new(0, 180, 0, 30)
-ToggleTeam.Text = "Team Check: ON"
-ToggleTeam.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
-ToggleTeam.TextColor3 = Color3.fromRGB(255, 255, 255)
 
 ToggleTeam.MouseButton1Click:Connect(function()
     Settings.TeamCheck = not Settings.TeamCheck
@@ -142,9 +174,14 @@ ToggleTeam.MouseButton1Click:Connect(function()
     ToggleTeam.BackgroundColor3 = Settings.TeamCheck and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(150, 0, 0)
 end)
 
--- Nhập bán kính FOV
+ToggleWall.MouseButton1Click:Connect(function()
+    Settings.WallCheck = not Settings.WallCheck
+    ToggleWall.Text = "Wall Check: " .. (Settings.WallCheck and "ON" or "OFF")
+    ToggleWall.BackgroundColor3 = Settings.WallCheck and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(150, 0, 0)
+end)
+
 RadiusInput.Parent = MainFrame
-RadiusInput.Position = UDim2.new(0, 10, 0, 160)
+RadiusInput.Position = UDim2.new(0, 10, 0, 200)
 RadiusInput.Size = UDim2.new(0, 180, 0, 30)
 RadiusInput.Text = "FOV Radius: 150"
 RadiusInput.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
@@ -152,14 +189,11 @@ RadiusInput.TextColor3 = Color3.fromRGB(255, 255, 255)
 
 RadiusInput.FocusLost:Connect(function()
     local val = tonumber(RadiusInput.Text:match("%d+"))
-    if val then
-        Settings.FOVRadius = val
-    end
+    if val then Settings.FOVRadius = val end
 end)
 
--- Nhập độ mượt Smoothness
 SmoothInput.Parent = MainFrame
-SmoothInput.Position = UDim2.new(0, 10, 0, 200)
+SmoothInput.Position = UDim2.new(0, 10, 0, 240)
 SmoothInput.Size = UDim2.new(0, 180, 0, 30)
 SmoothInput.Text = "Smooth: 0.1"
 SmoothInput.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
@@ -167,7 +201,5 @@ SmoothInput.TextColor3 = Color3.fromRGB(255, 255, 255)
 
 SmoothInput.FocusLost:Connect(function()
     local val = tonumber(SmoothInput.Text:match("%.?%d+"))
-    if val then
-        Settings.Smoothness = val
-    end
+    if val then Settings.Smoothness = val end
 end)
