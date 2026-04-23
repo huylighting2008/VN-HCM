@@ -1,10 +1,8 @@
 --[[ 
-    SIMPLE AIMBOT WITH GUI & SMOOTHNESS
-    Tính năng: 
-    - Bật/Tắt Aimbot
-    - Điều chỉnh độ mượt (Smoothness)
-    - Điều chỉnh bán kính vòng tròn (FOV Radius)
-    - Hiển thị vòng tròn FOV
+    AIMBOT WITH TEAM CHECK & GUI
+    Tính năng mới: 
+    - Team Check: Tự động bỏ qua đồng đội.
+    - GUI điều khiển Team Check.
 ]]
 
 local Players = game:GetService("Players")
@@ -17,12 +15,13 @@ local Camera = workspace.CurrentCamera
 local Settings = {
     AimbotEnabled = false,
     FOVEnabled = true,
+    TeamCheck = true, -- Mặc định bật: Chỉ aim kẻ thù
     FOVRadius = 150,
-    Smoothness = 0.1, -- Càng nhỏ càng mượt (ví dụ 0.05), càng lớn càng nhanh (1 là snap)
-    TargetPart = "Head" -- Có thể đổi thành "HumanoidRootPart"
+    Smoothness = 0.1, 
+    TargetPart = "Head" 
 }
 
--- // Tạo vòng tròn FOV (Sử dụng Drawing Library)
+-- // Tạo vòng tròn FOV
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Thickness = 1
 FOVCircle.Color = Color3.fromRGB(255, 255, 255)
@@ -30,15 +29,24 @@ FOVCircle.Filled = false
 FOVCircle.Transparency = 1
 FOVCircle.Visible = Settings.FOVEnabled
 
--- // Hàm tìm người chơi gần tâm màn hình nhất
+-- // Hàm tìm người chơi gần tâm màn hình nhất (Có kiểm tra Team)
 local function GetClosestPlayer()
     local MaximumDistance = Settings.FOVRadius
     local Target = nil
 
     for _, player in pairs(Players:GetPlayers()) do
+        -- 1. Kiểm tra không phải là chính mình
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild(Settings.TargetPart) and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+            
+            -- 2. KIỂM TRA TEAM: Nếu bật TeamCheck và cùng team thì bỏ qua
+            if Settings.TeamCheck and player.Team == LocalPlayer.Team then
+                continue -- Bỏ qua người này và chuyển sang người tiếp theo
+            end
+
+            -- 3. Tính toán khoảng cách đến tâm màn hình
             local ScreenPoint = Camera:WorldToScreenPoint(player.Character[Settings.TargetPart].Position)
-            local VectorDistance = (Vector2.new(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y) - Vector2.new(ScreenPoint.X, ScreenPoint.Y)).Magnitude
+            local MousePos = UserInputService:GetMouseLocation()
+            local VectorDistance = (Vector2.new(MousePos.X, MousePos.Y) - Vector2.new(ScreenPoint.X, ScreenPoint.Y)).Magnitude
 
             if VectorDistance < MaximumDistance then
                 MaximumDistance = VectorDistance
@@ -51,7 +59,6 @@ end
 
 -- // Cập nhật Camera (Aimbot Logic)
 RunService.RenderStepped:Connect(function()
-    -- Cập nhật vòng tròn FOV
     FOVCircle.Radius = Settings.FOVRadius
     FOVCircle.Position = UserInputService:GetMouseLocation()
     FOVCircle.Visible = Settings.FOVEnabled
@@ -60,8 +67,6 @@ RunService.RenderStepped:Connect(function()
         local Target = GetClosestPlayer()
         if Target and Target.Character and Target.Character:FindFirstChild(Settings.TargetPart) then
             local TargetPos = Target.Character[Settings.TargetPart].Position
-            
-            -- Tính toán CFrame mượt mà (Lerp)
             local LookAt = CFrame.new(Camera.CFrame.Position, TargetPos)
             Camera.CFrame = Camera.CFrame:Lerp(LookAt, Settings.Smoothness)
         end
@@ -74,6 +79,7 @@ local MainFrame = Instance.new("Frame")
 local Title = Instance.new("TextLabel")
 local ToggleAimbot = Instance.new("TextButton")
 local ToggleFOV = Instance.new("TextButton")
+local ToggleTeam = Instance.new("TextButton") -- Nút Team Check
 local RadiusInput = Instance.new("TextBox")
 local SmoothInput = Instance.new("TextBox")
 
@@ -84,12 +90,12 @@ MainFrame.Name = "MainFrame"
 MainFrame.Parent = ScreenGui
 MainFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 MainFrame.Position = UDim2.new(0.1, 0, 0.2, 0)
-MainFrame.Size = UDim2.new(0, 200, 0, 250)
+MainFrame.Size = UDim2.new(0, 200, 0, 300) -- Tăng chiều cao để chứa thêm nút
 MainFrame.Active = true
-MainFrame.Draggable = true -- Cho phép kéo GUI
+MainFrame.Draggable = true 
 
 Title.Parent = MainFrame
-Title.Text = "ROBLOX AIMBOT"
+Title.Text = "ROBLOX AIMBOT PRO"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Size = UDim2.new(1, 0, 0, 30)
 Title.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
@@ -122,9 +128,23 @@ ToggleFOV.MouseButton1Click:Connect(function()
     ToggleFOV.BackgroundColor3 = Settings.FOVEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(150, 0, 0)
 end)
 
+-- Nút Bật/Tắt Team Check (MỚI)
+ToggleTeam.Parent = MainFrame
+ToggleTeam.Position = UDim2.new(0, 10, 0, 120)
+ToggleTeam.Size = UDim2.new(0, 180, 0, 30)
+ToggleTeam.Text = "Team Check: ON"
+ToggleTeam.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+ToggleTeam.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+ToggleTeam.MouseButton1Click:Connect(function()
+    Settings.TeamCheck = not Settings.TeamCheck
+    ToggleTeam.Text = "Team Check: " .. (Settings.TeamCheck and "ON" or "OFF")
+    ToggleTeam.BackgroundColor3 = Settings.TeamCheck and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(150, 0, 0)
+end)
+
 -- Nhập bán kính FOV
 RadiusInput.Parent = MainFrame
-RadiusInput.Position = UDim2.new(0, 10, 0, 120)
+RadiusInput.Position = UDim2.new(0, 10, 0, 160)
 RadiusInput.Size = UDim2.new(0, 180, 0, 30)
 RadiusInput.Text = "FOV Radius: 150"
 RadiusInput.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
@@ -139,7 +159,7 @@ end)
 
 -- Nhập độ mượt Smoothness
 SmoothInput.Parent = MainFrame
-SmoothInput.Position = UDim2.new(0, 10, 0, 160)
+SmoothInput.Position = UDim2.new(0, 10, 0, 200)
 SmoothInput.Size = UDim2.new(0, 180, 0, 30)
 SmoothInput.Text = "Smooth: 0.1"
 SmoothInput.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
